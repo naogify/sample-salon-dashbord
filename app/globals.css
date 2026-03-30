@@ -1,0 +1,70 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: #F9FAFB;
+  --color-foreground: #1F2937;
+  --color-card: #FFFFFF;
+  --color-card-foreground: #1F2937;
+  --color-popover: #FFFFFF;
+  --color-popover-foreground: #1F2937;
+  --color-primary: #E8909A;
+  --color-primary-foreground: #FFFFFF;
+  --color-primary-light: #F5C7C7;
+  --color-primary-dark: #D4707C;
+  --color-secondary: #F9E8E8;
+  --color-secondary-foreground: #E8909A;
+  --color-muted: #F3F4F6;
+  --color-muted-foreground: #6B7280;
+  --color-accent: #FFF5F5;
+  --color-accent-foreground: #1F2937;
+  --color-destructive: #EF4444;
+  --color-destructive-foreground: #FFFFFF;
+  --color-border: #E5E7EB;
+  --color-input: #E5E7EB;
+  --color-ring: #E8909A;
+  --radius: 0.75rem;
+
+  --color-sidebar: #FFFFFF;
+  --color-sidebar-foreground: #6B7280;
+  --color-sidebar-active: #F9E8E8;
+  --color-sidebar-active-foreground: #E8909A;
+
+  --color-kpi-card: #FFF5F5;
+
+  --color-source-hotpepper: #F97316;
+  --color-source-line: #22C55E;
+  --color-source-google: #3B82F6;
+  --color-source-phone: #9CA3AF;
+  --color-source-walkin: #EC4899;
+
+  --color-category-matsueku: #F472B6;
+  --color-category-nail: #FB923C;
+  --color-category-matsuge-perm: #A78BFA;
+  --color-category-eyebrow: #34D399;
+  --color-category-option: #60A5FA;
+  --color-category-off: #CBD5E1;
+
+  --color-success: #22C55E;
+  --color-danger: #EF4444;
+
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-heading: var(--font-sans);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: system-ui, -apple-system, "Segoe UI", "Noto Sans JP", sans-serif;
+  }
+  html {
+    @apply font-sans;
+  }
+}
