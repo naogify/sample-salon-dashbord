@@ -18,6 +18,7 @@ jobs:
       contents: write
       issues: write
       pull-requests: write
+      deployments: read
     steps:
       - uses: actions/checkout@v4
 
@@ -49,6 +50,7 @@ jobs:
           claude --dangerously-skip-permissions --bare --model sonnet --max-turns 10 -p "${{ steps.context.outputs.prompt }}" < /dev/null
 
       - name: Create or update PR
+        id: pr
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
@@ -57,7 +59,6 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Check if branch exists
           if git ls-remote --heads origin "${BRANCH}" | grep -q "${BRANCH}"; then
             git checkout "${BRANCH}"
             git merge origin/main --no-edit || true
@@ -68,17 +69,87 @@ jobs:
           git add -A
           if git diff --cached --quiet; then
             echo "No changes to commit"
+            echo "has_changes=false" >> $GITHUB_OUTPUT
             exit 0
           fi
           git commit -m "Apply feedback from issue #${ISSUE_NUMBER}"
           git push origin "${BRANCH}" --force
+          echo "has_changes=true" >> $GITHUB_OUTPUT
 
-          # Create PR if not exists
           EXISTING_PR=$(gh pr list --head "${BRANCH}" --json number --jq '.[0].number')
           if [ -z "${EXISTING_PR}" ]; then
-            gh pr create \
+            PR_URL=$(gh pr create \
               --title "Apply feedback from issue #${ISSUE_NUMBER}" \
-              --body "Auto-generated from customer feedback.\n\nCloses #${ISSUE_NUMBER}" \
+              --body "Auto-generated from customer feedback. Closes #${ISSUE_NUMBER}" \
               --head "${BRANCH}" \
-              --base main
+              --base main)
+            PR_NUMBER=$(echo "${PR_URL}" | grep -oP '\d+$')
+          else
+            PR_NUMBER="${EXISTING_PR}"
           fi
+          echo "pr_number=${PR_NUMBER}" >> $GITHUB_OUTPUT
+
+      - name: Build check
+        if: steps.pr.outputs.has_changes == 'true'
+        id: build
+        env:
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          npm ci
+          npm run build 2>&1 | tee build-output.txt
+        continue-on-error: true
+
+      - name: Handle build failure
+        if: steps.build.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          RETRY_LABELS=$(gh issue view "${ISSUE_NUMBER}" --json labels --jq '.labels[].name' | grep '^retry-' || echo "")
+          CURRENT_RETRY=0
+          if [ -n "${RETRY_LABELS}" ]; then
+            CURRENT_RETRY=$(echo "${RETRY_LABELS}" | sed 's/retry-//' | sort -n | tail -1)
+          fi
+          NEXT_RETRY=$((CURRENT_RETRY + 1))
+
+          if [ ${NEXT_RETRY} -ge 3 ]; then
+            gh issue label add "${ISSUE_NUMBER}" --name "needs-human"
+            curl -s -X POST "${{ secrets.WORKERS_URL }}/api/notify" \
+              -H "Content-Type: application/json" \
+              -H "x-notify-secret: ${{ secrets.NOTIFY_SECRET }}" \
+              -d "{\"type\":\"error\",\"issueNumber\":${ISSUE_NUMBER},\"errorMessage\":\"Build failed after 3 retries\"}"
+          else
+            BUILD_ERROR=$(tail -50 build-output.txt)
+            gh issue comment "${ISSUE_NUMBER}" --body "Build error (retry ${NEXT_RETRY}/3):
+\`\`\`
+${BUILD_ERROR}
+\`\`\`
+Please fix this build error."
+            if [ -n "${RETRY_LABELS}" ]; then
+              gh issue label remove "${ISSUE_NUMBER}" --name "retry-${CURRENT_RETRY}" || true
+            fi
+            gh issue label add "${ISSUE_NUMBER}" --name "retry-${NEXT_RETRY}"
+            curl -s -X POST "${{ secrets.WORKERS_URL }}/api/notify" \
+              -H "Content-Type: application/json" \
+              -H "x-notify-secret: ${{ secrets.NOTIFY_SECRET }}" \
+              -d "{\"type\":\"error\",\"issueNumber\":${ISSUE_NUMBER},\"errorMessage\":\"Build failed, retrying\"}"
+          fi
+          exit 1
+
+      - name: Notify Workers with preview URL
+        if: steps.build.outcome == 'success' && steps.pr.outputs.has_changes == 'true'
+        env:
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          PR_NUMBER: ${{ steps.pr.outputs.pr_number }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Clear retry labels on success
+          gh issue label remove "${ISSUE_NUMBER}" --name "retry-0" --name "retry-1" --name "retry-2" 2>/dev/null || true
+
+          # Use PR URL as preview (Cloudflare Pages preview will be linked there)
+          PREVIEW_URL="https://github.com/${{ github.repository }}/pull/${PR_NUMBER}"
+
+          curl -s -X POST "${{ secrets.WORKERS_URL }}/api/notify" \
+            -H "Content-Type: application/json" \
+            -H "x-notify-secret: ${{ secrets.NOTIFY_SECRET }}" \
+            -d "{\"type\":\"preview\",\"issueNumber\":${ISSUE_NUMBER},\"previewUrl\":\"${PREVIEW_URL}\",\"prNumber\":${PR_NUMBER}}"
