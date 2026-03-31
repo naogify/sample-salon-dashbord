@@ -1,0 +1,81 @@
+# templates/feedback.yml
+# Copy this file to .github/workflows/feedback.yml in the target project
+name: Auto Feedback - Code Modification
+
+on:
+  issues:
+    types: [opened]
+  issue_comment:
+    types: [created]
+
+jobs:
+  modify-code:
+    if: |
+      (github.event_name == 'issues' && contains(github.event.issue.labels.*.name, 'auto-feedback')) ||
+      (github.event_name == 'issue_comment' && contains(github.event.issue.labels.*.name, 'auto-feedback') && github.event.comment.user.login != 'github-actions[bot]')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Collect feedback context
+        id: context
+        run: |
+          if [ "${{ github.event_name }}" = "issues" ]; then
+            echo "prompt<<EOF" >> $GITHUB_OUTPUT
+            echo "${{ github.event.issue.body }}" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          else
+            echo "prompt<<EOF" >> $GITHUB_OUTPUT
+            echo "Original feedback:" >> $GITHUB_OUTPUT
+            echo "${{ github.event.issue.body }}" >> $GITHUB_OUTPUT
+            echo "" >> $GITHUB_OUTPUT
+            echo "Additional instruction:" >> $GITHUB_OUTPUT
+            echo "${{ github.event.comment.body }}" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run Claude Code Action
+        uses: anthropics/claude-code-action@v1
+        with:
+          prompt: ${{ steps.context.outputs.prompt }}
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          allowed_tools: "Edit,Write,Bash,Glob,Grep,Read"
+
+      - name: Create or update PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          BRANCH="feedback/issue-${ISSUE_NUMBER}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Check if branch exists
+          if git ls-remote --heads origin "${BRANCH}" | grep -q "${BRANCH}"; then
+            git checkout "${BRANCH}"
+            git merge origin/main --no-edit || true
+          else
+            git checkout -b "${BRANCH}"
+          fi
+
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git commit -m "Apply feedback from issue #${ISSUE_NUMBER}"
+          git push origin "${BRANCH}" --force
+
+          # Create PR if not exists
+          EXISTING_PR=$(gh pr list --head "${BRANCH}" --json number --jq '.[0].number')
+          if [ -z "${EXISTING_PR}" ]; then
+            gh pr create \
+              --title "Apply feedback from issue #${ISSUE_NUMBER}" \
+              --body "Auto-generated from customer feedback.\n\nCloses #${ISSUE_NUMBER}" \
+              --head "${BRANCH}" \
+              --base main
+          fi

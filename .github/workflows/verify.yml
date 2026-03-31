@@ -1,0 +1,122 @@
+# templates/verify.yml
+# Copy this file to .github/workflows/verify.yml in the target project
+name: Auto Feedback - Build Verification
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  verify:
+    if: startsWith(github.head_ref, 'feedback/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      deployments: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        id: build
+        run: npm run build 2>&1 | tee build-output.txt
+        continue-on-error: true
+
+      - name: Extract issue number
+        id: issue
+        run: |
+          # Branch name is feedback/issue-{number}
+          ISSUE_NUMBER=$(echo "${{ github.head_ref }}" | sed 's/feedback\/issue-//')
+          echo "number=${ISSUE_NUMBER}" >> $GITHUB_OUTPUT
+
+      - name: Handle build failure
+        if: steps.build.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ steps.issue.outputs.number }}
+        run: |
+          # Check retry count via labels
+          RETRY_LABELS=$(gh issue view "${ISSUE_NUMBER}" --json labels --jq '.labels[].name' | grep '^retry-' || echo "")
+          CURRENT_RETRY=0
+          if [ -n "${RETRY_LABELS}" ]; then
+            CURRENT_RETRY=$(echo "${RETRY_LABELS}" | sed 's/retry-//' | sort -n | tail -1)
+          fi
+          NEXT_RETRY=$((CURRENT_RETRY + 1))
+
+          if [ ${NEXT_RETRY} -ge 3 ]; then
+            # Escalate — notify Workers
+            gh issue label add "${ISSUE_NUMBER}" --name "needs-human"
+            curl -X POST "${{ secrets.WORKERS_URL }}/api/notify" \
+              -H "Content-Type: application/json" \
+              -H "x-notify-secret: ${{ secrets.NOTIFY_SECRET }}" \
+              -d "{\"type\":\"error\",\"issueNumber\":${ISSUE_NUMBER},\"errorMessage\":\"Build failed after 3 retries\"}"
+          else
+            # Auto-repair — comment error on issue, remove old label, add new
+            BUILD_ERROR=$(tail -50 build-output.txt)
+            gh issue comment "${ISSUE_NUMBER}" --body "Build error (retry ${NEXT_RETRY}/3):\n\`\`\`\n${BUILD_ERROR}\n\`\`\`\nPlease fix this build error."
+
+            # Update retry label
+            if [ -n "${RETRY_LABELS}" ]; then
+              gh issue label remove "${ISSUE_NUMBER}" --name "retry-${CURRENT_RETRY}" || true
+            fi
+            gh issue label add "${ISSUE_NUMBER}" --name "retry-${NEXT_RETRY}"
+
+            # Notify Workers about auto-repair
+            curl -X POST "${{ secrets.WORKERS_URL }}/api/notify" \
+              -H "Content-Type: application/json" \
+              -H "x-notify-secret: ${{ secrets.NOTIFY_SECRET }}" \
+              -d "{\"type\":\"error\",\"issueNumber\":${ISSUE_NUMBER},\"errorMessage\":\"Build failed, retrying\"}"
+          fi
+          exit 1
+
+      - name: Wait for Cloudflare Pages deployment
+        if: steps.build.outcome == 'success'
+        id: preview
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Wait for deployment status with preview URL
+          PR_NUMBER=$(gh pr list --head "${{ github.head_ref }}" --json number --jq '.[0].number')
+          echo "pr_number=${PR_NUMBER}" >> $GITHUB_OUTPUT
+
+          for i in $(seq 1 20); do
+            sleep 15
+            DEPLOY_URL=$(gh api "repos/${{ github.repository }}/deployments" \
+              --jq "[.[] | select(.environment | startswith(\"preview\"))] | .[0].id" 2>/dev/null)
+
+            if [ -n "${DEPLOY_URL}" ] && [ "${DEPLOY_URL}" != "null" ]; then
+              PREVIEW_URL=$(gh api "repos/${{ github.repository }}/deployments/${DEPLOY_URL}/statuses" \
+                --jq '[.[] | select(.state == "success")] | .[0].environment_url' 2>/dev/null)
+
+              if [ -n "${PREVIEW_URL}" ] && [ "${PREVIEW_URL}" != "null" ]; then
+                echo "url=${PREVIEW_URL}" >> $GITHUB_OUTPUT
+                exit 0
+              fi
+            fi
+            echo "Waiting for deployment... (${i}/20)"
+          done
+          echo "Deployment timeout, using PR URL as fallback"
+          echo "url=https://github.com/${{ github.repository }}/pull/${PR_NUMBER}" >> $GITHUB_OUTPUT
+
+      - name: Notify Workers with preview URL
+        if: steps.build.outcome == 'success'
+        env:
+          ISSUE_NUMBER: ${{ steps.issue.outputs.number }}
+          PREVIEW_URL: ${{ steps.preview.outputs.url }}
+          PR_NUMBER: ${{ steps.preview.outputs.pr_number }}
+        run: |
+          # Clear retry labels on success
+          gh issue label remove "${ISSUE_NUMBER}" --name "retry-0" --name "retry-1" --name "retry-2" || true
+
+          curl -X POST "${{ secrets.WORKERS_URL }}/api/notify" \
+            -H "Content-Type: application/json" \
+            -H "x-notify-secret: ${{ secrets.NOTIFY_SECRET }}" \
+            -d "{\"type\":\"preview\",\"issueNumber\":${ISSUE_NUMBER},\"previewUrl\":\"${PREVIEW_URL}\",\"prNumber\":${PR_NUMBER}}"
