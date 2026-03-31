@@ -64,6 +64,7 @@ jobs:
 
       - name: Create or update PR
         id: pr
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
@@ -72,8 +73,11 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
+          # Clean up: delete local branch if exists, then create fresh from current HEAD
+          git branch -D "${BRANCH}" 2>/dev/null || true
           if git ls-remote --heads origin "${BRANCH}" | grep -q "${BRANCH}"; then
-            git checkout "${BRANCH}"
+            git fetch origin "${BRANCH}"
+            git checkout -b "${BRANCH}" "origin/${BRANCH}"
             git merge origin/main --no-edit || true
           else
             git checkout -b "${BRANCH}"
@@ -107,8 +111,19 @@ jobs:
           fi
           echo "pr_number=${PR_NUMBER}" >> $GITHUB_OUTPUT
 
+      - name: Notify on PR creation failure
+        if: steps.pr.outcome == 'failure'
+        env:
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          curl -s -X POST "${{ secrets.WORKERS_URL }}/api/notify" \
+            -H "Content-Type: application/json" \
+            -H "x-notify-secret: ${{ secrets.NOTIFY_SECRET }}" \
+            -d "{\"type\":\"error\",\"issueNumber\":${ISSUE_NUMBER},\"errorMessage\":\"PR creation failed\"}"
+          exit 1
+
       - name: Build check
-        if: steps.pr.outputs.has_changes == 'true'
+        if: steps.pr.outcome == 'success' && steps.pr.outputs.has_changes == 'true'
         id: build
         env:
           ISSUE_NUMBER: ${{ github.event.issue.number }}
