@@ -4,10 +4,10 @@ import { cn } from "@/lib/utils";
 import type { Reservation, Customer, MenuItem } from "@/lib/types";
 
 export function ReservationBlock({
-  reservation, customer, menuItems, timelineStartHour, timelineEndHour,
+  reservation, customer, menuItems, timelineStartHour, timelineEndHour, onClick,
 }: {
   reservation: Reservation; customer: Customer | undefined; menuItems: MenuItem[];
-  timelineStartHour: number; timelineEndHour: number;
+  timelineStartHour: number; timelineEndHour: number; onClick?: () => void;
 }) {
   const totalMinutes = (timelineEndHour - timelineStartHour) * 60;
   const [startH, startM] = reservation.startTime.split(":").map(Number);
@@ -29,6 +29,7 @@ export function ReservationBlock({
 
   return (
     <div
+      onClick={onClick}
       className="absolute top-1 bottom-1 rounded-lg px-2 py-1 text-xs overflow-hidden cursor-pointer hover:opacity-90 transition-opacity border-l-4"
       style={{
         left: `${leftPercent}%`, width: `${widthPercent}%`,

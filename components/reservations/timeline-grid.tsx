@@ -4,9 +4,10 @@ import { TIMELINE_START_HOUR, TIMELINE_END_HOUR } from "@/lib/constants";
 import type { Staff, Reservation, Customer, MenuItem } from "@/lib/types";
 
 export function TimelineGrid({
-  staffList, reservations, customers, menuItems,
+  staffList, reservations, customers, menuItems, onReservationClick,
 }: {
   staffList: Staff[]; reservations: Reservation[]; customers: Customer[]; menuItems: MenuItem[];
+  onReservationClick?: (reservation: Reservation) => void;
 }) {
   const hours = Array.from({ length: TIMELINE_END_HOUR - TIMELINE_START_HOUR + 1 }, (_, i) => TIMELINE_START_HOUR + i);
   const activeStaff = staffList.filter((s) => s.status === "active");
@@ -36,7 +37,8 @@ export function TimelineGrid({
               {staffReservations.map((res) => (
                 <ReservationBlock key={res.id} reservation={res}
                   customer={customers.find((c) => c.id === res.customerId)}
-                  menuItems={menuItems} timelineStartHour={TIMELINE_START_HOUR} timelineEndHour={TIMELINE_END_HOUR} />
+                  menuItems={menuItems} timelineStartHour={TIMELINE_START_HOUR} timelineEndHour={TIMELINE_END_HOUR}
+                  onClick={() => onReservationClick?.(res)} />
               ))}
             </div>
           </div>
