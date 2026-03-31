@@ -120,11 +120,8 @@ jobs:
               -d "{\"type\":\"error\",\"issueNumber\":${ISSUE_NUMBER},\"errorMessage\":\"Build failed after 3 retries\"}"
           else
             BUILD_ERROR=$(tail -50 build-output.txt)
-            gh issue comment "${ISSUE_NUMBER}" --body "Build error (retry ${NEXT_RETRY}/3):
-\`\`\`
-${BUILD_ERROR}
-\`\`\`
-Please fix this build error."
+            COMMENT_BODY=$(printf "Build error (retry %s/3):\n\n\`\`\`\n%s\n\`\`\`\n\nPlease fix this build error." "${NEXT_RETRY}" "${BUILD_ERROR}")
+            gh issue comment "${ISSUE_NUMBER}" --body "${COMMENT_BODY}"
             if [ -n "${RETRY_LABELS}" ]; then
               gh issue label remove "${ISSUE_NUMBER}" --name "retry-${CURRENT_RETRY}" || true
             fi
