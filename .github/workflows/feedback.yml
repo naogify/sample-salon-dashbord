@@ -133,18 +133,59 @@ jobs:
           fi
           exit 1
 
+      - name: Wait for Cloudflare Pages deploy preview
+        if: steps.build.outcome == 'success' && steps.pr.outputs.has_changes == 'true'
+        id: preview
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ steps.pr.outputs.pr_number }}
+        run: |
+          echo "Waiting for Cloudflare Pages deploy preview..."
+          BRANCH="feedback/issue-${{ github.event.issue.number }}"
+          HEAD_SHA=$(git rev-parse HEAD)
+
+          for i in $(seq 1 20); do
+            sleep 15
+            # Check deployment statuses on the commit
+            PREVIEW_URL=$(gh api "repos/${{ github.repository }}/commits/${HEAD_SHA}/statuses" \
+              --jq '[.[] | select(.target_url != null and (.target_url | contains("pages.dev")))] | .[0].target_url' 2>/dev/null)
+
+            if [ -n "${PREVIEW_URL}" ] && [ "${PREVIEW_URL}" != "null" ]; then
+              echo "Found preview URL: ${PREVIEW_URL}"
+              echo "url=${PREVIEW_URL}" >> $GITHUB_OUTPUT
+              exit 0
+            fi
+
+            # Also check deployments API
+            PREVIEW_URL=$(gh api "repos/${{ github.repository }}/deployments?ref=${BRANCH}" \
+              --jq '[.[] | select(.environment | contains("preview") or contains("Production"))] | .[0].id' 2>/dev/null)
+
+            if [ -n "${PREVIEW_URL}" ] && [ "${PREVIEW_URL}" != "null" ]; then
+              ENV_URL=$(gh api "repos/${{ github.repository }}/deployments/${PREVIEW_URL}/statuses" \
+                --jq '[.[] | select(.state == "success")] | .[0].environment_url' 2>/dev/null)
+              if [ -n "${ENV_URL}" ] && [ "${ENV_URL}" != "null" ]; then
+                echo "Found preview URL from deployments: ${ENV_URL}"
+                echo "url=${ENV_URL}" >> $GITHUB_OUTPUT
+                exit 0
+              fi
+            fi
+
+            echo "Waiting... (${i}/20)"
+          done
+
+          # Fallback to PR URL
+          echo "Deploy preview not found, using PR URL"
+          echo "url=https://github.com/${{ github.repository }}/pull/${PR_NUMBER}" >> $GITHUB_OUTPUT
+
       - name: Notify Workers with preview URL
         if: steps.build.outcome == 'success' && steps.pr.outputs.has_changes == 'true'
         env:
           ISSUE_NUMBER: ${{ github.event.issue.number }}
           PR_NUMBER: ${{ steps.pr.outputs.pr_number }}
+          PREVIEW_URL: ${{ steps.preview.outputs.url }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Clear retry labels on success
           gh issue label remove "${ISSUE_NUMBER}" --name "retry-0" --name "retry-1" --name "retry-2" 2>/dev/null || true
-
-          # Use PR URL as preview (Cloudflare Pages preview will be linked there)
-          PREVIEW_URL="https://github.com/${{ github.repository }}/pull/${PR_NUMBER}"
 
           curl -s -X POST "${{ secrets.WORKERS_URL }}/api/notify" \
             -H "Content-Type: application/json" \
