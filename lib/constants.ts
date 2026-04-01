@@ -44,3 +44,12 @@ export const NAV_ITEMS = [
 
 export const TIMELINE_START_HOUR = 9;
 export const TIMELINE_END_HOUR = 18;
+
+export const STORES = [
+  { value: "all", label: "全店舗" },
+  { value: "store-1", label: "渋谷店" },
+  { value: "store-2", label: "新宿店" },
+  { value: "store-3", label: "銀座店" },
+] as const;
+
+export type StoreValue = (typeof STORES)[number]["value"];
