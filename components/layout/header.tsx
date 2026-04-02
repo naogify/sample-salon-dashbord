@@ -32,7 +32,7 @@ export function Header() {
       <h1 className="text-lg font-bold text-foreground">{title}</h1>
 
       <div className="flex items-center gap-3">
-        <Select value={selectedStore} onValueChange={setSelectedStore}>
+        <Select value={selectedStore} onValueChange={(value) => { if (value !== null) setSelectedStore(value); }}>
           <SelectTrigger size="sm">
             <Store className="h-4 w-4 text-muted-foreground" />
             <SelectValue>
