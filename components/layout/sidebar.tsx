@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NAV_ITEMS } from "@/lib/constants";
-import { useState, useEffect } from "react";
+import { useState, useCallback } from "react";
 
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   LayoutDashboard,
@@ -30,10 +30,9 @@ export function Sidebar() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
-  // Close sidebar on route change
-  useEffect(() => {
+  const navigate = useCallback(() => {
     setOpen(false);
-  }, [pathname]);
+  }, []);
 
   return (
     <>
@@ -87,6 +86,7 @@ export function Sidebar() {
               <Link
                 key={item.href}
                 href={item.href}
+                onClick={navigate}
                 className={cn(
                   "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
                   isActive
