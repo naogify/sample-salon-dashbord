@@ -25,8 +25,7 @@ export function Header() {
   const title = getPageTitle(pathname);
   const [selectedStore, setSelectedStore] = React.useState("all");
 
-  const selectedStoreName =
-    STORES.find((s) => s.id === selectedStore)?.name ?? "";
+  const storeLabel = Object.fromEntries(STORES.map((s) => [s.id, s.name]));
 
   return (
     <header className="h-16 bg-card border-b border-border flex items-center justify-between px-4 pl-14 md:px-6">
@@ -36,7 +35,9 @@ export function Header() {
         <Select value={selectedStore} onValueChange={setSelectedStore}>
           <SelectTrigger size="sm">
             <Store className="h-4 w-4 text-muted-foreground" />
-            <SelectValue>{selectedStoreName}</SelectValue>
+            <SelectValue>
+              {(value: string) => storeLabel[value] ?? value}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             {STORES.map((store) => (
