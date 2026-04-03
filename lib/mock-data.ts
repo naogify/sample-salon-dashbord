@@ -1,4 +1,4 @@
-import type { Staff, MenuItem, Customer, Reservation, Source } from "./types";
+import type { Staff, MenuItem, Customer, Reservation } from "./types";
 
 export const staffList: Staff[] = [
   {
@@ -464,43 +464,5 @@ export const categorySalesData: Record<Period, {
     { category: "アイブロウ", count: 3, amount: 19800, percentage: 10.7 },
     { category: "オプション", count: 5, amount: 4400, percentage: 2.4 },
     { category: "オフ", count: 1, amount: 3000, percentage: 1.6 },
-  ],
-};
-
-export const sourceSalesData: Record<Period, {
-  source: Source;
-  count: number;
-  amount: number;
-  percentage: number;
-  adCost: number;
-  cpa: number;
-}[]> = {
-  今日: [
-    { source: "hotpepper", count: 8, amount: 68800, percentage: 37.2, adCost: 12000, cpa: 1500 },
-    { source: "line", count: 5, amount: 42500, percentage: 22.9, adCost: 0, cpa: 0 },
-    { source: "google", count: 4, amount: 35200, percentage: 19.0, adCost: 5000, cpa: 1250 },
-    { source: "phone", count: 3, amount: 23700, percentage: 12.8, adCost: 0, cpa: 0 },
-    { source: "walkin", count: 2, amount: 15000, percentage: 8.1, adCost: 0, cpa: 0 },
-  ],
-  今週: [
-    { source: "hotpepper", count: 38, amount: 328000, percentage: 36.8, adCost: 60000, cpa: 1579 },
-    { source: "line", count: 26, amount: 210000, percentage: 23.5, adCost: 0, cpa: 0 },
-    { source: "google", count: 18, amount: 162000, percentage: 18.2, adCost: 25000, cpa: 1389 },
-    { source: "phone", count: 12, amount: 107400, percentage: 12.0, adCost: 0, cpa: 0 },
-    { source: "walkin", count: 10, amount: 85000, percentage: 9.5, adCost: 0, cpa: 0 },
-  ],
-  今月: [
-    { source: "hotpepper", count: 152, amount: 1280000, percentage: 37.0, adCost: 240000, cpa: 1579 },
-    { source: "line", count: 103, amount: 812000, percentage: 23.5, adCost: 0, cpa: 0 },
-    { source: "google", count: 72, amount: 628000, percentage: 18.2, adCost: 100000, cpa: 1389 },
-    { source: "phone", count: 48, amount: 416000, percentage: 12.0, adCost: 0, cpa: 0 },
-    { source: "walkin", count: 37, amount: 320000, percentage: 9.3, adCost: 0, cpa: 0 },
-  ],
-  カスタム: [
-    { source: "hotpepper", count: 8, amount: 68800, percentage: 37.2, adCost: 12000, cpa: 1500 },
-    { source: "line", count: 5, amount: 42500, percentage: 22.9, adCost: 0, cpa: 0 },
-    { source: "google", count: 4, amount: 35200, percentage: 19.0, adCost: 5000, cpa: 1250 },
-    { source: "phone", count: 3, amount: 23700, percentage: 12.8, adCost: 0, cpa: 0 },
-    { source: "walkin", count: 2, amount: 15000, percentage: 8.1, adCost: 0, cpa: 0 },
   ],
 };
