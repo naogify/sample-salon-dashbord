@@ -466,3 +466,39 @@ export const categorySalesData: Record<Period, {
     { category: "オフ", count: 1, amount: 3000, percentage: 1.6 },
   ],
 };
+
+export const channelSalesData: Record<Period, {
+  source: "hotpepper" | "line" | "google" | "phone" | "walkin";
+  count: number;
+  amount: number;
+  percentage: number;
+}[]> = {
+  今日: [
+    { source: "hotpepper", count: 8, amount: 68200, percentage: 36.8 },
+    { source: "line", count: 5, amount: 42500, percentage: 23.0 },
+    { source: "google", count: 4, amount: 35800, percentage: 19.3 },
+    { source: "phone", count: 2, amount: 18700, percentage: 10.1 },
+    { source: "walkin", count: 3, amount: 20000, percentage: 10.8 },
+  ],
+  今週: [
+    { source: "hotpepper", count: 38, amount: 325000, percentage: 36.4 },
+    { source: "line", count: 25, amount: 210400, percentage: 23.6 },
+    { source: "google", count: 18, amount: 168000, percentage: 18.8 },
+    { source: "phone", count: 10, amount: 89000, percentage: 10.0 },
+    { source: "walkin", count: 13, amount: 100000, percentage: 11.2 },
+  ],
+  今月: [
+    { source: "hotpepper", count: 152, amount: 1278000, percentage: 37.0 },
+    { source: "line", count: 95, amount: 794000, percentage: 23.0 },
+    { source: "google", count: 72, amount: 656000, percentage: 19.0 },
+    { source: "phone", count: 40, amount: 348000, percentage: 10.0 },
+    { source: "walkin", count: 53, amount: 380000, percentage: 11.0 },
+  ],
+  カスタム: [
+    { source: "hotpepper", count: 8, amount: 68200, percentage: 36.8 },
+    { source: "line", count: 5, amount: 42500, percentage: 23.0 },
+    { source: "google", count: 4, amount: 35800, percentage: 19.3 },
+    { source: "phone", count: 2, amount: 18700, percentage: 10.1 },
+    { source: "walkin", count: 3, amount: 20000, percentage: 10.8 },
+  ],
+};
