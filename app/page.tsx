@@ -5,11 +5,13 @@ import { PeriodTabs } from "@/components/dashboard/period-tabs";
 import { KpiCards } from "@/components/dashboard/kpi-cards";
 import { StaffKpiTable } from "@/components/dashboard/staff-kpi-table";
 import { CategorySales } from "@/components/dashboard/category-sales";
+import { SourceSales } from "@/components/dashboard/source-sales";
 import {
   dashboardKpi,
   staffList,
   staffKpiData,
   categorySalesData,
+  sourceSalesData,
 } from "@/lib/mock-data";
 import type { Period } from "@/lib/mock-data";
 
@@ -44,6 +46,7 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <StaffKpiTable staffList={staffList} kpiData={staffKpiData[period]} />
         <CategorySales data={categorySalesData[period]} />
+        <SourceSales data={sourceSalesData[period]} />
       </div>
     </div>
   );
