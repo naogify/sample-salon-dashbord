@@ -23,7 +23,7 @@ export function Cart({ items, staffList, onRemove }: {
           <SelectTrigger><SelectValue placeholder="選択してください" /></SelectTrigger>
           <SelectContent>
             {activeStaff.map((staff) => (
-              <SelectItem key={staff.id} value={staff.id}>{staff.name}（{staff.role}）</SelectItem>
+              <SelectItem key={staff.id} value={staff.id} label={`${staff.name}（${staff.role}）`}>{staff.name}（{staff.role}）</SelectItem>
             ))}
           </SelectContent>
         </Select>

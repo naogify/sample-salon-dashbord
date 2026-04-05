@@ -10,7 +10,14 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { SourceBadge } from "./source-badge";
-import { ChevronUp, ChevronDown } from "lucide-react";
+import {
+  ChevronUp,
+  ChevronDown,
+  ChevronRight,
+  Phone,
+  Search,
+  Star,
+} from "lucide-react";
 
 type SortKey = "name" | "visitCount" | "lastVisit";
 type SortDir = "asc" | "desc";
@@ -78,6 +85,11 @@ function SortIcon({
 
 function formatDate(dateStr: string) {
   const d = new Date(dateStr);
+  return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`;
+}
+
+function formatDateShort(dateStr: string) {
+  const d = new Date(dateStr);
   return `${d.getMonth() + 1}/${d.getDate()}`;
 }
 
@@ -94,6 +106,92 @@ function daysAgo(dateStr: string) {
   return `${Math.floor(diff / 30)}ヶ月前`;
 }
 
+function VisitBar({ count, max }: { count: number; max: number }) {
+  const pct = Math.min((count / max) * 100, 100);
+  return (
+    <div className="flex items-center gap-2.5">
+      <div className="w-16 h-1.5 rounded-full bg-muted/80 overflow-hidden">
+        <div
+          className="h-full rounded-full bg-primary/60 transition-all"
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <span className="text-sm font-semibold tabular-nums">{count}</span>
+      <span className="text-muted-foreground text-xs">回</span>
+    </div>
+  );
+}
+
+function EmptyState() {
+  return (
+    <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+      <div className="size-16 rounded-2xl bg-muted/60 flex items-center justify-center mb-4">
+        <Search className="size-7 text-muted-foreground/50" />
+      </div>
+      <p className="text-sm font-semibold text-foreground/70">
+        該当する顧客が見つかりません
+      </p>
+      <p className="text-xs mt-1.5 text-muted-foreground">
+        検索条件を変更してお試しください
+      </p>
+    </div>
+  );
+}
+
+function MobileCard({
+  customer,
+  onSelect,
+}: {
+  customer: Customer;
+  onSelect: (customer: Customer) => void;
+}) {
+  const isVip = customer.visitCount >= 5;
+  return (
+    <button
+      type="button"
+      className="w-full text-left p-4 rounded-xl bg-card ring-1 ring-foreground/[0.06] hover:ring-primary/30 hover:shadow-sm active:scale-[0.99] transition-all duration-150"
+      onClick={() => onSelect(customer)}
+    >
+      <div className="flex items-start gap-3">
+        <div className="relative flex-shrink-0">
+          <div
+            className={`size-11 rounded-full ring-1 flex items-center justify-center text-xs font-bold ${avatarColor(customer.id)}`}
+          >
+            {getInitials(customer.name)}
+          </div>
+          {isVip && (
+            <div className="absolute -top-1 -right-1 size-4 rounded-full bg-amber-400 flex items-center justify-center ring-2 ring-card">
+              <Star className="size-2.5 text-white fill-white" />
+            </div>
+          )}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between gap-2">
+            <p className="font-semibold text-sm truncate">{customer.name}</p>
+            <ChevronRight className="size-4 text-muted-foreground/40 shrink-0" />
+          </div>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {customer.nameKana}
+          </p>
+          <div className="flex items-center gap-2 mt-2.5 flex-wrap">
+            <SourceBadge source={customer.source} />
+            <span className="text-xs text-muted-foreground bg-muted/60 px-2 py-0.5 rounded-full tabular-nums">
+              {customer.visitCount}回来店
+            </span>
+            <span className="text-xs text-muted-foreground tabular-nums ml-auto">
+              {formatDateShort(customer.lastVisit)}
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5 mt-2 text-muted-foreground">
+            <Phone className="size-3" />
+            <span className="text-xs tabular-nums">{customer.phone}</span>
+          </div>
+        </div>
+      </div>
+    </button>
+  );
+}
+
 export function CustomerTable({
   customers,
   onSelect,
@@ -102,119 +200,138 @@ export function CustomerTable({
   onSort,
 }: CustomerTableProps) {
   if (customers.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-        <div className="size-12 rounded-full bg-muted flex items-center justify-center mb-3">
-          <svg
-            className="size-6"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={1.5}
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
-            />
-          </svg>
-        </div>
-        <p className="text-sm font-medium">該当する顧客が見つかりません</p>
-        <p className="text-xs mt-1">検索条件を変更してお試しください</p>
-      </div>
-    );
+    return <EmptyState />;
   }
 
+  const maxVisit = Math.max(...customers.map((c) => c.visitCount), 1);
+
   return (
-    <Table>
-      <TableHeader>
-        <TableRow className="hover:bg-transparent">
-          <TableHead
-            className="cursor-pointer select-none"
-            onClick={() => onSort("name")}
-          >
-            <span className="inline-flex items-center">
-              顧客
-              <SortIcon column="name" sortKey={sortKey} sortDir={sortDir} />
-            </span>
-          </TableHead>
-          <TableHead className="hidden sm:table-cell">電話番号</TableHead>
-          <TableHead>流入元</TableHead>
-          <TableHead
-            className="text-right cursor-pointer select-none"
-            onClick={() => onSort("visitCount")}
-          >
-            <span className="inline-flex items-center justify-end">
-              来店回数
-              <SortIcon
-                column="visitCount"
-                sortKey={sortKey}
-                sortDir={sortDir}
-              />
-            </span>
-          </TableHead>
-          <TableHead
-            className="hidden sm:table-cell cursor-pointer select-none"
-            onClick={() => onSort("lastVisit")}
-          >
-            <span className="inline-flex items-center">
-              最終来店
-              <SortIcon
-                column="lastVisit"
-                sortKey={sortKey}
-                sortDir={sortDir}
-              />
-            </span>
-          </TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
+    <>
+      {/* Mobile card list */}
+      <div className="sm:hidden p-3 space-y-2">
         {customers.map((customer) => (
-          <TableRow
+          <MobileCard
             key={customer.id}
-            className="cursor-pointer group/row hover:bg-primary/[0.03]"
-            onClick={() => onSelect(customer)}
-          >
-            <TableCell>
-              <div className="flex items-center gap-3">
-                <div
-                  className={`flex-shrink-0 size-9 rounded-full ring-1 flex items-center justify-center text-xs font-bold transition-shadow group-hover/row:ring-2 ${avatarColor(customer.id)}`}
-                >
-                  {getInitials(customer.name)}
-                </div>
-                <div className="min-w-0">
-                  <p className="font-medium truncate group-hover/row:text-primary transition-colors">
-                    {customer.name}
-                  </p>
-                  <p className="text-xs text-muted-foreground truncate hidden sm:block">
-                    {customer.nameKana}
-                  </p>
-                </div>
-              </div>
-            </TableCell>
-            <TableCell className="hidden sm:table-cell text-sm text-muted-foreground tabular-nums">
-              {customer.phone}
-            </TableCell>
-            <TableCell>
-              <SourceBadge source={customer.source} />
-            </TableCell>
-            <TableCell className="text-right tabular-nums">
-              <span className="font-semibold">{customer.visitCount}</span>
-              <span className="text-muted-foreground text-xs ml-0.5">回</span>
-            </TableCell>
-            <TableCell className="hidden sm:table-cell">
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-foreground tabular-nums">
-                  {formatDate(customer.lastVisit)}
-                </span>
-                <span className="text-[11px] text-muted-foreground bg-muted/60 px-1.5 py-0.5 rounded">
-                  {daysAgo(customer.lastVisit)}
-                </span>
-              </div>
-            </TableCell>
-          </TableRow>
+            customer={customer}
+            onSelect={onSelect}
+          />
         ))}
-      </TableBody>
-    </Table>
+      </div>
+
+      {/* Desktop table */}
+      <div className="hidden sm:block">
+        <Table>
+          <TableHeader>
+            <TableRow className="hover:bg-transparent border-b border-foreground/5">
+              <TableHead
+                className="cursor-pointer select-none"
+                onClick={() => onSort("name")}
+              >
+                <span className="inline-flex items-center text-xs font-semibold uppercase tracking-wider">
+                  顧客
+                  <SortIcon column="name" sortKey={sortKey} sortDir={sortDir} />
+                </span>
+              </TableHead>
+              <TableHead className="hidden md:table-cell">
+                <span className="text-xs font-semibold uppercase tracking-wider">
+                  電話番号
+                </span>
+              </TableHead>
+              <TableHead>
+                <span className="text-xs font-semibold uppercase tracking-wider">
+                  流入元
+                </span>
+              </TableHead>
+              <TableHead
+                className="cursor-pointer select-none"
+                onClick={() => onSort("visitCount")}
+              >
+                <span className="inline-flex items-center text-xs font-semibold uppercase tracking-wider">
+                  来店回数
+                  <SortIcon
+                    column="visitCount"
+                    sortKey={sortKey}
+                    sortDir={sortDir}
+                  />
+                </span>
+              </TableHead>
+              <TableHead
+                className="hidden md:table-cell cursor-pointer select-none"
+                onClick={() => onSort("lastVisit")}
+              >
+                <span className="inline-flex items-center text-xs font-semibold uppercase tracking-wider">
+                  最終来店
+                  <SortIcon
+                    column="lastVisit"
+                    sortKey={sortKey}
+                    sortDir={sortDir}
+                  />
+                </span>
+              </TableHead>
+              <TableHead className="w-8" />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {customers.map((customer) => {
+              const isVip = customer.visitCount >= 5;
+              return (
+                <TableRow
+                  key={customer.id}
+                  className="cursor-pointer group/row hover:bg-primary/[0.03] transition-colors"
+                  onClick={() => onSelect(customer)}
+                >
+                  <TableCell>
+                    <div className="flex items-center gap-3">
+                      <div className="relative flex-shrink-0">
+                        <div
+                          className={`size-9 rounded-full ring-1 flex items-center justify-center text-xs font-bold transition-shadow group-hover/row:ring-2 ${avatarColor(customer.id)}`}
+                        >
+                          {getInitials(customer.name)}
+                        </div>
+                        {isVip && (
+                          <div className="absolute -top-0.5 -right-0.5 size-3.5 rounded-full bg-amber-400 flex items-center justify-center ring-2 ring-card">
+                            <Star className="size-2 text-white fill-white" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-medium truncate group-hover/row:text-primary transition-colors">
+                          {customer.name}
+                        </p>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {customer.nameKana}
+                        </p>
+                      </div>
+                    </div>
+                  </TableCell>
+                  <TableCell className="hidden md:table-cell text-sm text-muted-foreground tabular-nums">
+                    {customer.phone}
+                  </TableCell>
+                  <TableCell>
+                    <SourceBadge source={customer.source} />
+                  </TableCell>
+                  <TableCell>
+                    <VisitBar count={customer.visitCount} max={maxVisit} />
+                  </TableCell>
+                  <TableCell className="hidden md:table-cell">
+                    <div className="flex flex-col">
+                      <span className="text-sm text-foreground tabular-nums">
+                        {formatDate(customer.lastVisit)}
+                      </span>
+                      <span className="text-[11px] text-muted-foreground">
+                        {daysAgo(customer.lastVisit)}
+                      </span>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <ChevronRight className="size-4 text-muted-foreground/30 group-hover/row:text-primary/60 group-hover/row:translate-x-0.5 transition-all" />
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </div>
+    </>
   );
 }
